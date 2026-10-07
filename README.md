@@ -14,6 +14,7 @@ Open `http://127.0.0.1:18537`. The application is decision support only: it does
 - Validate public certificate chains with Go `crypto/x509` and record the offline result.
 - Model service-to-service dependencies, trust references, ownership, environment, and criticality.
 - Freeze inputs for deterministic rollover simulation, with evidence for time-window path failures.
+- Reconcile simulation predictions against service-owner switch receipts, with a ready gate and reviewer separation.
 - Require an independent reviewer before a scenario can move from `executing` to `verified`.
 - Preserve request IDs, actor identity, before/after snapshots, hashes, algorithm version, and timing in audit records.
 
@@ -68,6 +69,27 @@ Authentication is available through `POST /api/v1/auth/login`. All write endpoin
 - `frontend/src/types/enums/scenario-state.ts`, stores, state badges, and rollover page
 
 Valid scenario transitions are `draft -> simulated -> ready -> executing -> verified`, `executing -> rollback`, and `simulated/ready -> draft`. Invalid transitions return `409`; a creator attempting to verify their own scenario receives `409 REVIEWER_SEPARATION_REQUIRED`. Authorization failures return `403`, and unauthenticated requests return `401`.
+
+## Receipt reconciliation (回执对账)
+
+When a root certificate is being rolled over, the platform team freezes the trust anchor and chain and runs a simulation that lists the broken paths. Each service owner maintains their own service's client trust set and reports the switch-to-new-root progress as a **receipt (回执)**. The two sides reconcile by service:
+
+- **Simulation says break, service says switched** → the receipt is `suspended` (挂起) pending a security reviewer's review.
+- **Service hasn't finished switching** → the rotation cannot be judged `ready`.
+- **Receipt submission fails** → retry that one service alone; other services are unaffected.
+- **Older simulations have no receipts** → backfill by service; mismatches are listed separately.
+
+Receipt states: `pending -> submitted/suspended/failed`, `suspended -> confirmed/rejected`, `failed -> submitted/suspended` (retryable). A scenario can move to `ready` only when every affected service has an "ok" receipt (confirmed or submitted-with-switch).
+
+The receipt API is namespaced under `/api/v1/rollover-scenarios/:id/receipts`:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/rollover-scenarios/:id/receipts` | List receipts with reconciliation summary |
+| POST | `/rollover-scenarios/:id/receipts/backfill` | Create pending receipts for affected services |
+| POST | `/rollover-scenarios/:id/receipts/:service_id/submit` | Submit a switch receipt |
+| POST | `/rollover-scenarios/:id/receipts/:service_id/retry` | Retry a failed receipt |
+| POST | `/rollover-scenarios/:id/receipts/:service_id/review` | Review a suspended receipt (confirm/reject) |
 
 ## Configuration and ports
 

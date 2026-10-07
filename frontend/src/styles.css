@@ -344,6 +344,48 @@ button, input, textarea, select { letter-spacing: 0; }
   .boundary-stamp { display: none; }
 }
 
+/* Receipt reconciliation panel */
+.receipt-panel { margin-top: 20px; }
+.receipt-panel-loading { padding: 24px; color: #6f7b75; font-size: .85rem; }
+.receipt-panel-actions { display: flex; align-items: center; gap: 8px; }
+.receipt-summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 14px 0; padding: 12px 14px; border: 1px solid var(--mineral-3); background: var(--mineral-0); }
+.receipt-counts { display: flex; gap: 14px; flex-wrap: wrap; }
+.receipt-count { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; color: #44524c; }
+.receipt-count .MuiSvgIcon-root { font-size: 1rem; }
+.receipt-blockers { margin-bottom: 14px; }
+.receipt-blockers ul { margin: 6px 0 0; padding-left: 20px; }
+.receipt-blockers li { font-size: .78rem; margin: 2px 0; }
+.receipt-list { display: flex; flex-direction: column; gap: 10px; }
+.receipt-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid var(--mineral-3); background: var(--mineral-0); }
+.receipt-row-main { flex: 1; min-width: 0; }
+.receipt-row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.receipt-row-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: .7rem; color: #6f7b75; }
+.receipt-failure { margin-top: 6px; font-size: .72rem; color: #8f322f; }
+.receipt-review-comment { margin-top: 4px; font-size: .72rem; color: #53615b; }
+.receipt-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.receipt-mismatches { margin-top: 18px; }
+.receipt-mismatches h4 { margin: 0 0 8px; font-size: .82rem; }
+.mismatch-list { display: flex; flex-direction: column; gap: 8px; }
+.mismatch-row { padding: 10px 12px; border: 1px solid #d1a09c; background: #f3e2e0; }
+.mismatch-row strong { font-size: .78rem; }
+.mismatch-row span { display: block; font-size: .7rem; color: #6f7b75; margin-top: 2px; }
+.mismatch-detail { font-size: .72rem !important; color: #8f322f !important; margin-top: 4px !important; }
+
+/* Receipt state badges */
+.receipt-pending { border-color: #b6c1bb; background: #e9edeb; color: #53615b; }
+.receipt-failed { border-color: #d1a09c; background: #f3e2e0; color: #8f322f; }
+.receipt-submitted { border-color: #9abaaa; background: #e2ede7; color: #236347; }
+.receipt-suspended { border-color: #d7b87c; background: #f3ead9; color: #88580d; }
+.receipt-confirmed { border-color: #9abaaa; background: #e2ede7; color: #236347; }
+.receipt-rejected { border-color: #d1a09c; background: #f3e2e0; color: #8f322f; }
+
+/* Reconciliation badges */
+.tone-reconciliation-ok { border-color: #9abaaa; background: #e2ede7; color: #236347; }
+.tone-reconciliation-blocked { border-color: #d1a09c; background: #f3e2e0; color: #8f322f; }
+.tone-reconciliation-suspended { border-color: #d7b87c; background: #f3ead9; color: #88580d; }
+.tone-reconciliation-missing { border-color: #b6c1bb; background: #e9edeb; color: #53615b; }
+.tone-reconciliation-failed { border-color: #d1a09c; background: #f3e2e0; color: #8f322f; }
+
 @media (max-width: 700px) {
   .page-shell { gap: 13px; padding: 18px 12px 28px; }
   .page-header { align-items: flex-start; flex-direction: column; gap: 15px; min-height: 0; padding: 4px 2px 16px; }

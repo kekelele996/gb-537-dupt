@@ -64,7 +64,7 @@ func TestOwnershipAndReviewerSeparation(t *testing.T) {
 func TestScenarioCreatorCannotVerifyOwnSimulation(t *testing.T) {
 	db := newScenarioTestDB(t)
 	scenario := persistScenario(t, db, minimalScenario(t, db, "separation", "separation-hash", "", "executing", 7, 0))
-	service := NewRolloverScenarioService(repository.NewRolloverScenarioRepository(db), nil, nil, nil, repository.NewAuditRepository(db), repository.NewTransactionManager(db))
+	service := NewRolloverScenarioService(repository.NewRolloverScenarioRepository(db), nil, nil, nil, repository.NewReceiptRepository(db), repository.NewAuditRepository(db), repository.NewTransactionManager(db))
 
 	_, err := service.Transition(context.Background(), scenario.ID, dto.RolloverScenarioTransitionRequest{ToState: string(constants.ScenarioVerified)}, util.Actor{UserID: 7, Username: "operator", Role: string(constants.RolePKIOperator)}, "request-self-verify")
 	var apiErr *util.APIError
@@ -124,7 +124,7 @@ func TestSimulationIdempotencyKeyCannotCrossScenarioBoundary(t *testing.T) {
 	db := newScenarioTestDB(t)
 	first := persistScenario(t, db, minimalScenario(t, db, "first", "hash-first", "shared-key", "simulated", 7, 0))
 	second := persistScenario(t, db, minimalScenario(t, db, "second", "hash-second", "", "draft", 7, time.Minute))
-	service := NewRolloverScenarioService(repository.NewRolloverScenarioRepository(db), nil, nil, nil, repository.NewAuditRepository(db), repository.NewTransactionManager(db))
+	service := NewRolloverScenarioService(repository.NewRolloverScenarioRepository(db), nil, nil, nil, repository.NewReceiptRepository(db), repository.NewAuditRepository(db), repository.NewTransactionManager(db))
 	_, reused, err := service.Simulate(context.Background(), second.ID, first.IdempotencyKey, util.Actor{UserID: 7, Username: "operator", Role: string(constants.RolePKIOperator)}, "request-cross-key")
 	if err == nil || reused {
 		t.Fatalf("cross-scenario key got reused=%v err=%v", reused, err)
@@ -157,7 +157,7 @@ func TestReplayEvidenceRollsBackWhenAuditAppendFails(t *testing.T) {
 	base.InputSnapshot, base.AffectedServicesJSON, base.BrokenPathsJSON, base.PathEvidenceJSON, base.Explanation = snapshotJSON, affectedJSON, pathsJSON, evidenceJSON, result.Explanation
 	scenario := persistScenario(t, db, base)
 	auditErr := errors.New("audit storage unavailable")
-	service := NewRolloverScenarioService(repository.NewRolloverScenarioRepository(db), nil, nil, nil, failingAuditRepository{err: auditErr}, repository.NewTransactionManager(db))
+	service := NewRolloverScenarioService(repository.NewRolloverScenarioRepository(db), nil, nil, nil, repository.NewReceiptRepository(db), failingAuditRepository{err: auditErr}, repository.NewTransactionManager(db))
 	_, err = service.Replay(context.Background(), scenario.ID, util.Actor{UserID: 7, Username: "operator", Role: string(constants.RolePKIOperator)}, "request-replay")
 	if err == nil {
 		t.Fatal("replay should fail when audit append fails")

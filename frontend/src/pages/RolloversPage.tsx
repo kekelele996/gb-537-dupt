@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/common/DataS
 import { Fingerprint } from '../components/common/Fingerprint'
 import { FormDrawer } from '../components/common/FormDrawer'
 import { PageHeader } from '../components/common/PageHeader'
+import { ReceiptPanel } from '../components/common/ReceiptPanel'
 import { ScenarioStateBadge } from '../components/common/ScenarioStateBadge'
 import { StatStrip } from '../components/common/StatStrip'
 import { ValidationEvidenceDrawer } from '../components/common/ValidationEvidenceDrawer'
@@ -109,6 +110,7 @@ export function RolloversPage() {
             {active.scenario_state === 'executing' && can('scenario.write') && <Button color="error" variant="text" startIcon={<AutorenewRounded />} onClick={() => transitionActive('rollback')}>记录回滚</Button>}
           </Box>
           <Box className="rollover-lower-grid"><section><Box className="detail-section-head"><Typography variant="h3">服务可达性</Typography><span>{affectedIds?.length ?? 0} 受影响</span></Box><DependencyGraph services={services} highlightedIds={affectedIds} /></section><section><Box className="detail-section-head"><Typography variant="h3">断裂路径</Typography><span>{active.broken_paths_json.length}</span></Box><Box className="broken-paths">{active.broken_paths_json.map((path, index) => <Box key={`${path.at}-${index}`}><span>{formatDateTime(path.at)}</span><strong>{path.service_codes.join(' → ')}</strong><Typography>{path.reason}</Typography></Box>)}{!active.broken_paths_json.length && <Box className="no-broken-paths"><FactCheckRounded /><span>当前证据未发现断裂路径</span></Box>}</Box></section></Box>
+          {active.scenario_state !== 'draft' && <ReceiptPanel scenarioId={active.id} />}
         </> : <Box className="detail-placeholder"><Typography>选择一个冻结场景查看推演证据。</Typography></Box>}
       </section>
     </Box>

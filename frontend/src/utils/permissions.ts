@@ -1,12 +1,12 @@
 import type { Actor, Role } from '../types/auth'
 
-export type Permission = 'anchor.write' | 'chain.write' | 'dependency.write' | 'scenario.write' | 'scenario.run' | 'scenario.verify' | 'audit.read'
+export type Permission = 'anchor.write' | 'chain.write' | 'dependency.write' | 'scenario.write' | 'scenario.run' | 'scenario.verify' | 'receipt.submit' | 'receipt.review' | 'audit.read'
 
 const permissions: Record<Role, Permission[]> = {
-  admin: ['anchor.write', 'chain.write', 'dependency.write', 'scenario.write', 'scenario.run', 'scenario.verify', 'audit.read'],
-  pki_operator: ['anchor.write', 'chain.write', 'dependency.write', 'scenario.write', 'scenario.run'],
-  service_owner: ['dependency.write', 'scenario.write', 'scenario.run'],
-  security_reviewer: ['scenario.verify', 'audit.read'],
+  admin: ['anchor.write', 'chain.write', 'dependency.write', 'scenario.write', 'scenario.run', 'scenario.verify', 'receipt.submit', 'receipt.review', 'audit.read'],
+  pki_operator: ['anchor.write', 'chain.write', 'dependency.write', 'scenario.write', 'scenario.run', 'receipt.submit'],
+  service_owner: ['dependency.write', 'scenario.write', 'scenario.run', 'receipt.submit'],
+  security_reviewer: ['scenario.verify', 'receipt.review', 'audit.read'],
   auditor: ['audit.read'],
 }
 

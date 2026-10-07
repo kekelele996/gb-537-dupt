@@ -17,14 +17,16 @@ const (
 	PermissionScenarioWrite   Permission = "scenario.write"
 	PermissionScenarioRun     Permission = "scenario.run"
 	PermissionScenarioVerify  Permission = "scenario.verify"
+	PermissionReceiptSubmit   Permission = "receipt.submit"
+	PermissionReceiptReview   Permission = "receipt.review"
 	PermissionAuditRead       Permission = "audit.read"
 )
 
 var permissions = map[Role]map[Permission]bool{
-	RoleAdmin:            {PermissionRead: true, PermissionAnchorWrite: true, PermissionChainWrite: true, PermissionDependencyWrite: true, PermissionScenarioWrite: true, PermissionScenarioRun: true, PermissionScenarioVerify: true, PermissionAuditRead: true},
-	RolePKIOperator:      {PermissionRead: true, PermissionAnchorWrite: true, PermissionChainWrite: true, PermissionDependencyWrite: true, PermissionScenarioWrite: true, PermissionScenarioRun: true},
-	RoleServiceOwner:     {PermissionRead: true, PermissionDependencyWrite: true, PermissionScenarioWrite: true, PermissionScenarioRun: true},
-	RoleSecurityReviewer: {PermissionRead: true, PermissionScenarioVerify: true, PermissionAuditRead: true},
+	RoleAdmin:            {PermissionRead: true, PermissionAnchorWrite: true, PermissionChainWrite: true, PermissionDependencyWrite: true, PermissionScenarioWrite: true, PermissionScenarioRun: true, PermissionScenarioVerify: true, PermissionReceiptSubmit: true, PermissionReceiptReview: true, PermissionAuditRead: true},
+	RolePKIOperator:      {PermissionRead: true, PermissionAnchorWrite: true, PermissionChainWrite: true, PermissionDependencyWrite: true, PermissionScenarioWrite: true, PermissionScenarioRun: true, PermissionReceiptSubmit: true},
+	RoleServiceOwner:     {PermissionRead: true, PermissionDependencyWrite: true, PermissionScenarioWrite: true, PermissionScenarioRun: true, PermissionReceiptSubmit: true},
+	RoleSecurityReviewer: {PermissionRead: true, PermissionScenarioVerify: true, PermissionReceiptReview: true, PermissionAuditRead: true},
 	RoleAuditor:          {PermissionRead: true, PermissionAuditRead: true},
 }
 

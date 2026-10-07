@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"gorm.io/gorm"
 	"net/http"
 	"pki-certificate-rollover-impact/backend/internal/algorithm"
@@ -21,13 +22,14 @@ type RolloverScenarioService struct {
 	anchors      repository.TrustAnchorRepository
 	chains       repository.CertificateChainRepository
 	services     repository.DependentServiceRepository
+	receipts     repository.ReceiptRepository
 	audits       repository.AuditRepository
 	transactions repository.TransactionManager
 	now          func() time.Time
 }
 
-func NewRolloverScenarioService(scenarios repository.RolloverScenarioRepository, anchors repository.TrustAnchorRepository, chains repository.CertificateChainRepository, services repository.DependentServiceRepository, audits repository.AuditRepository, transactions repository.TransactionManager) *RolloverScenarioService {
-	return &RolloverScenarioService{scenarios: scenarios, anchors: anchors, chains: chains, services: services, audits: audits, transactions: transactions, now: func() time.Time { return time.Now().UTC() }}
+func NewRolloverScenarioService(scenarios repository.RolloverScenarioRepository, anchors repository.TrustAnchorRepository, chains repository.CertificateChainRepository, services repository.DependentServiceRepository, receipts repository.ReceiptRepository, audits repository.AuditRepository, transactions repository.TransactionManager) *RolloverScenarioService {
+	return &RolloverScenarioService{scenarios: scenarios, anchors: anchors, chains: chains, services: services, receipts: receipts, audits: audits, transactions: transactions, now: func() time.Time { return time.Now().UTC() }}
 }
 
 func requireScenarioOwnership(actor util.Actor, scenario model.RolloverScenario) error {
@@ -148,6 +150,9 @@ func (s *RolloverScenarioService) Simulate(ctx context.Context, id uint, idempot
 	if err != nil {
 		return dto.RolloverScenarioResponse{}, false, err
 	}
+	if initErr := s.initializeReceipts(ctx, id, actor, requestID); initErr != nil {
+		return dto.RolloverScenarioResponse{}, false, initErr
+	}
 	response, getErr := s.Get(ctx, id)
 	return response, false, getErr
 }
@@ -192,6 +197,15 @@ func (s *RolloverScenarioService) Transition(ctx context.Context, id uint, reque
 	if to == constants.ScenarioVerified && !scenario.ReviewerSeparated(actor.UserID) {
 		return dto.RolloverScenarioResponse{}, util.NewError(http.StatusConflict, util.CodeReviewerConflict, "scenario creator cannot verify their own simulation")
 	}
+	if to == constants.ScenarioReady {
+		ready, blockers, readyErr := s.checkReceiptsReady(ctx, id, scenario)
+		if readyErr != nil {
+			return dto.RolloverScenarioResponse{}, readyErr
+		}
+		if !ready {
+			return dto.RolloverScenarioResponse{}, util.NewError(http.StatusConflict, util.CodeReceiptNotReady, "rotation cannot be judged ready: "+strings.Join(blockers, "; "))
+		}
+	}
 	updates := map[string]any{}
 	if to == constants.ScenarioVerified {
 		updates["verified_by"] = actor.UserID
@@ -224,6 +238,87 @@ func (s *RolloverScenarioService) Transition(ctx context.Context, id uint, reque
 	}
 	return s.Get(ctx, id)
 }
+
+// checkReceiptsReady evaluates the receipt-based ready gate: a scenario can
+// move to ready only when every affected service has an "ok" receipt. This is
+// the service-side half of the reconciliation — the simulation predicts the
+// break, the service owner confirms the switch.
+func (s *RolloverScenarioService) checkReceiptsReady(ctx context.Context, scenarioID uint, scenario model.RolloverScenario) (bool, []string, error) {
+	receipts, err := s.receipts.ListByScenario(ctx, scenarioID)
+	if err != nil {
+		return false, nil, util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to load receipts", err)
+	}
+	expected := affectedServiceIDs(scenario)
+	receiptByService := map[uint]model.Receipt{}
+	for _, r := range receipts {
+		receiptByService[r.ServiceID] = r
+	}
+	blockers := []string{}
+	for _, id := range expected {
+		receipt, ok := receiptByService[id]
+		if !ok {
+			blockers = append(blockers, fmt.Sprintf("service %d has no receipt", id))
+			continue
+		}
+		status := constants.ReconcileReceipt(constants.ReceiptState(receipt.ReceiptState), receipt.SwitchedToNewRoot)
+		switch status {
+		case constants.ReconciliationOK:
+			continue
+		case constants.ReconciliationBlocked:
+			blockers = append(blockers, fmt.Sprintf("service %s has not completed the switch", receipt.ServiceCode))
+		case constants.ReconciliationSuspended:
+			blockers = append(blockers, fmt.Sprintf("service %s receipt is suspended pending security reviewer review", receipt.ServiceCode))
+		case constants.ReconciliationFailed:
+			blockers = append(blockers, fmt.Sprintf("service %s receipt submission failed and needs retry", receipt.ServiceCode))
+		default:
+			blockers = append(blockers, fmt.Sprintf("service %s receipt is still pending", receipt.ServiceCode))
+		}
+	}
+	return len(blockers) == 0, blockers, nil
+}
+
+// initializeReceipts creates a pending receipt for every affected service that
+// does not yet have one. Called automatically after a simulation completes so
+// service owners can immediately report their switch progress.
+func (s *RolloverScenarioService) initializeReceipts(ctx context.Context, scenarioID uint, actor util.Actor, requestID string) error {
+	scenario, err := s.scenarios.GetByID(ctx, scenarioID, false)
+	if err != nil {
+		return util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to load rollover scenario", err)
+	}
+	ids := affectedServiceIDs(scenario)
+	if len(ids) == 0 {
+		return nil
+	}
+	allServices, err := s.services.All(ctx)
+	if err != nil {
+		return util.WrapError(http.StatusInternalServerError, util.CodeInternal, "unable to load dependent services", err)
+	}
+	serviceByID := map[uint]model.DependentService{}
+	for _, svc := range allServices {
+		serviceByID[svc.ID] = svc
+	}
+	now := s.now()
+	return s.transactions.WithinTransaction(ctx, func(txCtx context.Context) error {
+		for _, id := range ids {
+			if _, existsErr := s.receipts.GetByScenarioAndService(txCtx, scenarioID, id); existsErr == nil {
+				continue
+			} else if !errors.Is(existsErr, gorm.ErrRecordNotFound) {
+				return existsErr
+			}
+			svc, ok := serviceByID[id]
+			if !ok {
+				continue
+			}
+			trustJSON, _ := encode(decodeUintListOrEmpty(svc.ClientTrustRefsJSON))
+			receipt := model.Receipt{ScenarioID: scenarioID, ServiceID: id, ServiceCode: svc.ServiceCode, ReportedTrustRefsJSON: trustJSON, SwitchedToNewRoot: false, ReceiptState: string(constants.ReceiptPending), ReportedBy: actor.UserID, ReportedByName: actor.Username, ReportedAt: now, CreatedAt: now, UpdatedAt: now}
+			if createErr := s.receipts.Create(txCtx, &receipt); createErr != nil {
+				return createErr
+			}
+		}
+		return recordAudit(txCtx, s.audits, actor, requestID, "receipt", scenarioID, "initialize_receipts", nil, map[string]any{"scenario_id": scenarioID, "expected": len(ids)}, "", "", nil, 0, "")
+	})
+}
+
 func (s *RolloverScenarioService) Replay(ctx context.Context, id uint, actor util.Actor, requestID string) (dto.RolloverScenarioResponse, error) {
 	scenario, err := s.scenarios.GetByID(ctx, id, false)
 	if err != nil {

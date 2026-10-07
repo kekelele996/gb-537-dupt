@@ -51,7 +51,7 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 	if err := sqlDB.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
-	if err := db.AutoMigrate(&model.User{}, &model.TrustAnchor{}, &model.CertificateChain{}, &model.DependentService{}, &model.RolloverScenario{}, &model.AuditLog{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.TrustAnchor{}, &model.CertificateChain{}, &model.DependentService{}, &model.RolloverScenario{}, &model.Receipt{}, &model.AuditLog{}); err != nil {
 		return nil, fmt.Errorf("migrate database schema: %w", err)
 	}
 	if err := seed(db); err != nil {

@@ -1,4 +1,5 @@
 import type { ScenarioState } from './enums/scenario-state'
+import type { MigrationState, DeliveryState, ReviewStatus, ReconciliationStatus } from './enums/reconciliation-state'
 import type { TrustAnchor } from './trust-anchor'
 
 export interface AffectedService {
@@ -72,5 +73,54 @@ export interface CreateRolloverScenarioInput {
   overlap_end: string
   candidate_chain_ids: number[]
   simulation_time: string
+}
+
+export interface MigrationReceipt {
+  id: number
+  scenario_id: number
+  service_id: number
+  service_code: string
+  migration_state: MigrationState
+  trust_anchor_ids: number[]
+  note: string
+  delivery_state: DeliveryState
+  delivery_attempts: number
+  last_delivery_error: string
+  review_status: ReviewStatus
+  reviewed_by_name: string
+  reviewed_at?: string
+  review_comment: string
+  legacy_backfilled: boolean
+  reported_by_name: string
+  delivered_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SubmitMigrationReceiptInput {
+  service_id: number
+  migration_state: MigrationState
+  trust_anchor_ids: number[]
+  note?: string
+}
+
+export interface ServiceReconciliation {
+  service_id: number
+  service_code: string
+  predicted_broken: boolean
+  has_receipt: boolean
+  receipt?: MigrationReceipt
+  status: ReconciliationStatus
+  reason: string
+}
+
+export interface ReceiptReconciliation {
+  scenario_id: number
+  scenario_state: ScenarioState
+  total_services: number
+  counts: Partial<Record<ReconciliationStatus, number>>
+  ready_to_mark: boolean
+  blocking: ServiceReconciliation[]
+  items: ServiceReconciliation[]
 }
 

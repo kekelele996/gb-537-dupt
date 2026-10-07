@@ -394,3 +394,25 @@ button, input, textarea, select { letter-spacing: 0; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
+
+/* Migration receipt reconciliation */
+.receipt-panel { margin-top: 22px; }
+.receipts-head { margin-top: 0; }
+.receipts-actions { display: inline-flex; align-items: center; gap: 6px; }
+.receipt-counts { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.reconciliation-chip { font-weight: 700 !important; }
+.reconciliation-chip.reconciled { color: #236347 !important; background: #e2ede7 !important; border-color: #9abaaa !important; }
+.reconciliation-chip.mismatch { color: #88580d !important; background: #f3ead9 !important; border-color: #d7b87c !important; }
+.reconciliation-chip.outstanding { color: #53615b !important; background: #e9edeb !important; border-color: #b6c1bb !important; }
+.reconciliation-chip.legacy { color: #33507a !important; background: #e6ecf4 !important; border-color: #aebdd4 !important; }
+.reconciliation-chip.failed { color: #8f322f !important; background: #f3e2e0 !important; border-color: #d1a09c !important; }
+.receipt-table { margin-top: 4px; }
+.receipt-table small { display: block; margin-top: 2px; color: #718078; font-size: .64rem; }
+.receipt-row td { vertical-align: top; }
+.delivery-delivered { color: #236347; font-weight: 700; }
+.delivery-failed { color: #8f322f; font-weight: 700; }
+.delivery-pending { color: #88580d; font-weight: 700; }
+.receipt-reason { display: block; margin-top: 3px; color: #88580d; }
+.receipt-row-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.receipt-empty { padding: 18px; color: #718078; }
+.review-decision-row { display: flex; flex-wrap: wrap; gap: 10px; }

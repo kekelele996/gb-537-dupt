@@ -83,7 +83,7 @@ func run(logger *slog.Logger) error {
 	router.RegisterRolloverScenarioRoutes(api, scenarioHandler, simulationLimiter)
 	api.GET("/audit-logs", middleware.RequirePermission(constants.PermissionAuditRead), auditHandler.List)
 	api.GET("/meta/enums", middleware.RequirePermission(constants.PermissionRead), func(c *gin.Context) {
-		util.Success(c, http.StatusOK, gin.H{"certificate_states": constants.CertificateStateValues(), "scenario_states": constants.ScenarioStateValues(), "chain_states": []constants.ChainState{constants.ChainImported, constants.ChainValidated, constants.ChainDeprecated, constants.ChainRevoked}, "service_states": []constants.ServiceState{constants.ServiceActive, constants.ServiceInactive}, "roles": constants.RoleValues(), "algorithm_version": algorithm.Version})
+		util.Success(c, http.StatusOK, gin.H{"certificate_states": constants.CertificateStateValues(), "scenario_states": constants.ScenarioStateValues(), "chain_states": []constants.ChainState{constants.ChainImported, constants.ChainValidated, constants.ChainDeprecated, constants.ChainRevoked}, "service_states": []constants.ServiceState{constants.ServiceActive, constants.ServiceInactive}, "roles": constants.RoleValues(), "migration_states": constants.MigrationStateValues(), "delivery_states": constants.DeliveryStateValues(), "review_states": constants.ReviewStatusValues(), "reconciliation_states": constants.ReconciliationStatusValues(), "algorithm_version": algorithm.Version})
 	})
 	engine.NoRoute(func(c *gin.Context) {
 		util.Fail(c, util.NewError(http.StatusNotFound, util.CodeNotFound, "route was not found"))

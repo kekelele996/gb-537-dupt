@@ -34,3 +34,33 @@ type RolloverScenario struct {
 }
 
 func (s RolloverScenario) ReviewerSeparated(userID uint) bool { return s.CreatedBy != userID }
+
+// MigrationReceipt is the per-service cutover acknowledgement reported by the
+// service owner for one frozen rollover scenario. There is at most one receipt
+// per (scenario, service) pair. It is decision-support evidence only; it never
+// deploys or replaces a real certificate or touches production key systems.
+type MigrationReceipt struct {
+	ID                uint             `gorm:"primaryKey" json:"id"`
+	ScenarioID        uint             `gorm:"not null;uniqueIndex:idx_receipt_scenario_service,priority:1;index" json:"scenario_id"`
+	Scenario          RolloverScenario `gorm:"foreignKey:ScenarioID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	ServiceID         uint             `gorm:"not null;uniqueIndex:idx_receipt_scenario_service,priority:2;index" json:"service_id"`
+	Service           DependentService `gorm:"foreignKey:ServiceID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"-"`
+	ServiceCode       string           `gorm:"size:80;not null" json:"service_code"`
+	MigrationState    string           `gorm:"size:24;not null" json:"migration_state"`
+	TrustAnchorIDs    string           `gorm:"type:text;not null" json:"trust_anchor_ids"`
+	Note              string           `gorm:"size:1000;not null;default:''" json:"note"`
+	DeliveryState     string           `gorm:"size:24;not null;index" json:"delivery_state"`
+	DeliveryAttempts  int              `gorm:"not null;default:0" json:"delivery_attempts"`
+	LastDeliveryError string           `gorm:"size:500;not null;default:''" json:"last_delivery_error"`
+	ReviewStatus      string           `gorm:"size:24;not null;index" json:"review_status"`
+	ReviewedBy        *uint            `json:"reviewed_by,omitempty"`
+	ReviewedByName    string           `gorm:"size:80;not null;default:''" json:"reviewed_by_name"`
+	ReviewedAt        *time.Time       `json:"reviewed_at,omitempty"`
+	ReviewComment     string           `gorm:"size:1000;not null;default:''" json:"review_comment"`
+	LegacyBackfilled  bool             `gorm:"not null;default:false;index" json:"legacy_backfilled"`
+	ReportedBy        uint             `gorm:"not null" json:"reported_by"`
+	ReportedByName    string           `gorm:"size:80;not null" json:"reported_by_name"`
+	DeliveredAt       *time.Time       `json:"delivered_at,omitempty"`
+	CreatedAt         time.Time        `gorm:"not null" json:"created_at"`
+	UpdatedAt         time.Time        `gorm:"not null" json:"updated_at"`
+}

@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/common/DataS
 import { Fingerprint } from '../components/common/Fingerprint'
 import { FormDrawer } from '../components/common/FormDrawer'
 import { PageHeader } from '../components/common/PageHeader'
+import { ReceiptReconciliationPanel } from '../components/common/ReceiptReconciliationPanel'
 import { ScenarioStateBadge } from '../components/common/ScenarioStateBadge'
 import { StatStrip } from '../components/common/StatStrip'
 import { ValidationEvidenceDrawer } from '../components/common/ValidationEvidenceDrawer'
@@ -34,7 +35,7 @@ const transitionCopy: Partial<Record<ScenarioState, { to: ScenarioState; label: 
 }
 
 export function RolloversPage() {
-  const { items, total, status, error, active, fetchScenarios, createScenario, transition, replay, select } = useRolloverScenarioStore()
+  const { items, total, status, error, active, fetchScenarios, createScenario, transition, replay, select, fetchReceipts, reconciliation } = useRolloverScenarioStore()
   const { items: anchors, fetchAnchors } = useTrustAnchorStore()
   const { items: chains, fetchChains } = useCertificateChainStore()
   const { items: services, fetchServices } = useDependentServiceStore()
@@ -49,6 +50,7 @@ export function RolloversPage() {
 
   useEffect(() => { void fetchScenarios(); void fetchAnchors(); void fetchChains(); void fetchServices() }, [fetchAnchors, fetchChains, fetchScenarios, fetchServices])
   useEffect(() => { if (!active && items.length) select(items[0]) }, [active, items, select])
+  useEffect(() => { if (active && active.scenario_state !== 'draft') void fetchReceipts(active.id) }, [active?.id, active?.scenario_state, fetchReceipts])
   const affectedIds = active?.affected_services_json.map((item) => item.service_id ?? item.id).filter(Boolean) as number[] | undefined
 
   const openCreate = () => {
@@ -82,6 +84,7 @@ export function RolloversPage() {
   }
 
   const next = active ? transitionCopy[active.scenario_state] : undefined
+  const readyBlocked = !!active && active.scenario_state === 'simulated' && reconciliation !== null && !reconciliation.ready_to_mark
   const canAdvance = next && ((next.to === 'verified' && can('scenario.verify')) || (next.to !== 'verified' && can('scenario.write')))
   const reviewerConflict = active?.scenario_state === 'executing' && active.created_by === user?.user_id
 
@@ -103,12 +106,13 @@ export function RolloversPage() {
           <Box className="simulation-explanation"><ScienceRounded /><Typography>{active.explanation}</Typography></Box>
           <Box className="scenario-toolbar">
             {active.scenario_state === 'draft' && can('scenario.run') && <Button variant="contained" startIcon={<PlayArrowRounded />} disabled={simulation.runningId === active.id} onClick={() => runSimulation(active)}>{simulation.runningId === active.id ? '正在推演…' : '运行离线推演'}</Button>}
-            {canAdvance && !reviewerConflict && <Button variant="contained" startIcon={next?.to === 'verified' ? <FactCheckRounded /> : <ArrowForwardRounded />} disabled={busy} onClick={() => next && transitionActive(next.to)}>{next?.label}</Button>}
+            {canAdvance && !reviewerConflict && <Tooltip title={readyBlocked ? '仍有服务回执未对平，不能判成就绪' : ''}><span><Button variant="contained" startIcon={next?.to === 'verified' ? <FactCheckRounded /> : <ArrowForwardRounded />} disabled={busy || readyBlocked} onClick={() => next && transitionActive(next.to)}>{next?.label}</Button></span></Tooltip>}
             {active.scenario_state !== 'draft' && can('scenario.run') && <Button variant="outlined" startIcon={<ReplayRounded />} disabled={busy} onClick={replayActive}>重放一致性</Button>}
             {!!active.path_evidence_json.length && <Button variant="outlined" startIcon={<RouteRounded />} onClick={() => setEvidenceOpen(true)}>逐路径证据</Button>}
             {active.scenario_state === 'executing' && can('scenario.write') && <Button color="error" variant="text" startIcon={<AutorenewRounded />} onClick={() => transitionActive('rollback')}>记录回滚</Button>}
           </Box>
           <Box className="rollover-lower-grid"><section><Box className="detail-section-head"><Typography variant="h3">服务可达性</Typography><span>{affectedIds?.length ?? 0} 受影响</span></Box><DependencyGraph services={services} highlightedIds={affectedIds} /></section><section><Box className="detail-section-head"><Typography variant="h3">断裂路径</Typography><span>{active.broken_paths_json.length}</span></Box><Box className="broken-paths">{active.broken_paths_json.map((path, index) => <Box key={`${path.at}-${index}`}><span>{formatDateTime(path.at)}</span><strong>{path.service_codes.join(' → ')}</strong><Typography>{path.reason}</Typography></Box>)}{!active.broken_paths_json.length && <Box className="no-broken-paths"><FactCheckRounded /><span>当前证据未发现断裂路径</span></Box>}</Box></section></Box>
+          {active.scenario_state !== 'draft' && <ReceiptReconciliationPanel scenario={active} />}
         </> : <Box className="detail-placeholder"><Typography>选择一个冻结场景查看推演证据。</Typography></Box>}
       </section>
     </Box>

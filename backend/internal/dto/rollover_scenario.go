@@ -28,6 +28,61 @@ type RolloverScenarioQuery struct {
 	PageSize  int
 }
 
+type SubmitMigrationReceiptRequest struct {
+	ServiceID      uint   `json:"service_id" validate:"required"`
+	MigrationState string `json:"migration_state" validate:"required,oneof=not_started in_progress migrated"`
+	TrustAnchorIDs []uint `json:"trust_anchor_ids" validate:"max=32,dive,gt=0"`
+	Note           string `json:"note" validate:"max=1000"`
+}
+type RetryMigrationReceiptRequest struct {
+	Note string `json:"note" validate:"max=1000"`
+}
+type ReviewMigrationReceiptRequest struct {
+	Decision string `json:"decision" validate:"required,oneof=cleared rejected"`
+	Comment  string `json:"comment" validate:"max=1000"`
+}
+
+type MigrationReceiptResponse struct {
+	ID                uint       `json:"id"`
+	ScenarioID        uint       `json:"scenario_id"`
+	ServiceID         uint       `json:"service_id"`
+	ServiceCode       string     `json:"service_code"`
+	MigrationState    string     `json:"migration_state"`
+	TrustAnchorIDs    []uint     `json:"trust_anchor_ids"`
+	Note              string     `json:"note"`
+	DeliveryState     string     `json:"delivery_state"`
+	DeliveryAttempts  int        `json:"delivery_attempts"`
+	LastDeliveryError string     `json:"last_delivery_error"`
+	ReviewStatus      string     `json:"review_status"`
+	ReviewedByName    string     `json:"reviewed_by_name"`
+	ReviewedAt        *time.Time `json:"reviewed_at,omitempty"`
+	ReviewComment     string     `json:"review_comment"`
+	LegacyBackfilled  bool       `json:"legacy_backfilled"`
+	ReportedByName    string     `json:"reported_by_name"`
+	DeliveredAt       *time.Time `json:"delivered_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+}
+
+type ServiceReconciliation struct {
+	ServiceID       uint                      `json:"service_id"`
+	ServiceCode     string                    `json:"service_code"`
+	PredictedBroken bool                      `json:"predicted_broken"`
+	HasReceipt      bool                      `json:"has_receipt"`
+	Receipt         *MigrationReceiptResponse `json:"receipt,omitempty"`
+	Status          string                    `json:"status"`
+	Reason          string                    `json:"reason"`
+}
+type ReceiptReconciliationResponse struct {
+	ScenarioID    uint                    `json:"scenario_id"`
+	ScenarioState string                  `json:"scenario_state"`
+	TotalServices int                     `json:"total_services"`
+	Counts        map[string]int          `json:"counts"`
+	ReadyToMark   bool                    `json:"ready_to_mark"`
+	Blocking      []ServiceReconciliation `json:"blocking"`
+	Items         []ServiceReconciliation `json:"items"`
+}
+
 type RolloverScenarioResponse struct {
 	ID                   uint                          `json:"id"`
 	Name                 string                        `json:"name"`
@@ -82,4 +137,10 @@ func NewRolloverScenarioResponse(scenario model.RolloverScenario, now time.Time)
 		response.NewAnchor = &anchor
 	}
 	return response
+}
+
+func NewMigrationReceiptResponse(receipt model.MigrationReceipt) MigrationReceiptResponse {
+	anchorIDs := []uint{}
+	_ = json.Unmarshal([]byte(receipt.TrustAnchorIDs), &anchorIDs)
+	return MigrationReceiptResponse{ID: receipt.ID, ScenarioID: receipt.ScenarioID, ServiceID: receipt.ServiceID, ServiceCode: receipt.ServiceCode, MigrationState: receipt.MigrationState, TrustAnchorIDs: anchorIDs, Note: receipt.Note, DeliveryState: receipt.DeliveryState, DeliveryAttempts: receipt.DeliveryAttempts, LastDeliveryError: receipt.LastDeliveryError, ReviewStatus: receipt.ReviewStatus, ReviewedByName: receipt.ReviewedByName, ReviewedAt: receipt.ReviewedAt, ReviewComment: receipt.ReviewComment, LegacyBackfilled: receipt.LegacyBackfilled, ReportedByName: receipt.ReportedByName, DeliveredAt: receipt.DeliveredAt, CreatedAt: receipt.CreatedAt, UpdatedAt: receipt.UpdatedAt}
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gorm.io/gorm"
 	"pki-certificate-rollover-impact/backend/internal/dto"
@@ -18,6 +19,11 @@ type RolloverScenarioRepository interface {
 	CompleteSimulation(context.Context, uint, map[string]any) (bool, error)
 	Transition(context.Context, uint, string, string, map[string]any) (bool, error)
 	SetReplayVerified(context.Context, uint, bool) error
+
+	ListReceipts(ctx context.Context, scenarioID uint) ([]model.MigrationReceipt, error)
+	GetReceipt(ctx context.Context, scenarioID, serviceID uint) (model.MigrationReceipt, error)
+	UpsertReceipt(ctx context.Context, receipt *model.MigrationReceipt) error
+	CreateMissingReceipts(ctx context.Context, receipts []model.MigrationReceipt) (int64, error)
 }
 type rolloverScenarioRepository struct{ db *gorm.DB }
 
@@ -104,4 +110,66 @@ func (r *rolloverScenarioRepository) SetReplayVerified(ctx context.Context, id u
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+func (r *rolloverScenarioRepository) ListReceipts(ctx context.Context, scenarioID uint) ([]model.MigrationReceipt, error) {
+	var receipts []model.MigrationReceipt
+	if err := scopedDB(ctx, r.db).Where("scenario_id = ?", scenarioID).Order("service_id ASC").Find(&receipts).Error; err != nil {
+		return nil, fmt.Errorf("list migration receipts for scenario %d: %w", scenarioID, err)
+	}
+	return receipts, nil
+}
+
+func (r *rolloverScenarioRepository) GetReceipt(ctx context.Context, scenarioID, serviceID uint) (model.MigrationReceipt, error) {
+	var receipt model.MigrationReceipt
+	if err := scopedDB(ctx, r.db).Where("scenario_id = ? AND service_id = ?", scenarioID, serviceID).First(&receipt).Error; err != nil {
+		return model.MigrationReceipt{}, fmt.Errorf("find migration receipt: %w", err)
+	}
+	return receipt, nil
+}
+
+func (r *rolloverScenarioRepository) UpsertReceipt(ctx context.Context, receipt *model.MigrationReceipt) error {
+	var existing model.MigrationReceipt
+	err := scopedDB(ctx, r.db).Where("scenario_id = ? AND service_id = ?", receipt.ScenarioID, receipt.ServiceID).First(&existing).Error
+	if err == nil {
+		receipt.ID = existing.ID
+		if err := scopedDB(ctx, r.db).Save(receipt).Error; err != nil {
+			return fmt.Errorf("update migration receipt: %w", err)
+		}
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("lookup migration receipt: %w", err)
+	}
+	if err := scopedDB(ctx, r.db).Create(receipt).Error; err != nil {
+		return fmt.Errorf("create migration receipt: %w", err)
+	}
+	return nil
+}
+
+// CreateMissingReceipts inserts backfill placeholders only for (scenario,
+// service) pairs that do not already have a receipt, so owner-reported rows
+// are never overwritten during an upgrade.
+func (r *rolloverScenarioRepository) CreateMissingReceipts(ctx context.Context, receipts []model.MigrationReceipt) (int64, error) {
+	if len(receipts) == 0 {
+		return 0, nil
+	}
+	var created int64
+	for _, receipt := range receipts {
+		var count int64
+		if err := scopedDB(ctx, r.db).Model(&model.MigrationReceipt{}).Where("scenario_id = ? AND service_id = ?", receipt.ScenarioID, receipt.ServiceID).Count(&count).Error; err != nil {
+			return created, fmt.Errorf("check existing migration receipt: %w", err)
+		}
+		if count > 0 {
+			continue
+		}
+		if err := scopedDB(ctx, r.db).Create(&receipt).Error; err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				continue
+			}
+			return created, fmt.Errorf("backfill migration receipt: %w", err)
+		}
+		created++
+	}
+	return created, nil
 }

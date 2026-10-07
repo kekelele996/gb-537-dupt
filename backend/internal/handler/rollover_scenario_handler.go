@@ -111,3 +111,72 @@ func (h *RolloverScenarioHandler) Compare(c *gin.Context) {
 	result, serviceErr := h.service.Compare(c.Request.Context(), id, otherID)
 	respond(c, http.StatusOK, result, serviceErr)
 }
+
+func (h *RolloverScenarioHandler) ReceiptReconciliation(c *gin.Context) {
+	id, err := util.ParseUintParam(c, "id")
+	if err != nil {
+		util.Fail(c, err)
+		return
+	}
+	result, serviceErr := h.service.Reconciliation(c.Request.Context(), id)
+	respond(c, http.StatusOK, result, serviceErr)
+}
+func (h *RolloverScenarioHandler) SubmitReceipt(c *gin.Context) {
+	id, err := util.ParseUintParam(c, "id")
+	if err != nil {
+		util.Fail(c, err)
+		return
+	}
+	var request dto.SubmitMigrationReceiptRequest
+	if !bindJSON(c, &request) {
+		return
+	}
+	result, serviceErr := h.service.SubmitReceipt(c.Request.Context(), id, request, mustActor(c), util.RequestID(c))
+	respond(c, http.StatusCreated, result, serviceErr)
+}
+func (h *RolloverScenarioHandler) receiptServiceParams(c *gin.Context) (uint, uint, bool) {
+	id, err := util.ParseUintParam(c, "id")
+	if err != nil {
+		util.Fail(c, err)
+		return 0, 0, false
+	}
+	serviceID, err := util.ParseUintParam(c, "service_id")
+	if err != nil {
+		util.Fail(c, err)
+		return 0, 0, false
+	}
+	return id, serviceID, true
+}
+func (h *RolloverScenarioHandler) RetryReceipt(c *gin.Context) {
+	id, serviceID, ok := h.receiptServiceParams(c)
+	if !ok {
+		return
+	}
+	var request dto.RetryMigrationReceiptRequest
+	if c.Request.ContentLength > 0 && !bindJSON(c, &request) {
+		return
+	}
+	result, serviceErr := h.service.RetryReceipt(c.Request.Context(), id, serviceID, request, mustActor(c), util.RequestID(c))
+	respond(c, http.StatusOK, result, serviceErr)
+}
+func (h *RolloverScenarioHandler) ReviewReceipt(c *gin.Context) {
+	id, serviceID, ok := h.receiptServiceParams(c)
+	if !ok {
+		return
+	}
+	var request dto.ReviewMigrationReceiptRequest
+	if !bindJSON(c, &request) {
+		return
+	}
+	result, serviceErr := h.service.ReviewReceipt(c.Request.Context(), id, serviceID, request, mustActor(c), util.RequestID(c))
+	respond(c, http.StatusOK, result, serviceErr)
+}
+func (h *RolloverScenarioHandler) BackfillReceipts(c *gin.Context) {
+	id, err := util.ParseUintParam(c, "id")
+	if err != nil {
+		util.Fail(c, err)
+		return
+	}
+	result, serviceErr := h.service.BackfillReceipts(c.Request.Context(), id, mustActor(c), util.RequestID(c))
+	respond(c, http.StatusOK, result, serviceErr)
+}
